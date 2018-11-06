@@ -28,6 +28,9 @@ class ViewController: UIViewController, MKMapViewDelegate, XMLParserDelegate {
     var dLat: Double?
     var dLong: Double?
     var vPM10Cai: String?
+    //1시간 마다 호출의해 타이머 객체 생성
+    var timer = Timer()
+    var currentTime: String?
     
     let addrs:[String:[String]] = [
         "태종대" : ["영도구 전망로 24", "35.0597260", "129.0798400", "태종대유원지관리사무소", "도시대기", "녹지지역"],
@@ -56,7 +59,13 @@ class ViewController: UIViewController, MKMapViewDelegate, XMLParserDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         self.title = "부산 미세먼지 지도"
-        // Do any additional setup after loading the view, typically from a nib.
+        // Do any additional setup after loading the view, typically from a nib.\\
+        
+        myParse()
+        timer = Timer.scheduledTimer(timeInterval: 60*60, target: self, selector: #selector(myParse), userInfo: nil, repeats: true)
+        
+        
+        
         // XML Parsing
         let key = "aT2qqrDmCzPVVXR6EFs6I50LZTIvvDrlvDKekAv9ltv9dbO%2F8i8JBz2wsrkpr9yrPEODkcXYzAqAEX1m%2Fl4nHQ%3D%3D"
         let strURL = "http://opendata.busan.go.kr/openapi/service/AirQualityInfoService/getAirQualityInfoClassifiedByStation?ServiceKey=\(key)&numOfRows=21"
@@ -83,7 +92,7 @@ class ViewController: UIViewController, MKMapViewDelegate, XMLParserDelegate {
         // Map
         myMapView.delegate = self
         
-        //  초기 맵 region 설정
+        //초기 맵 region 설정
         zoomToRegion()
         
         for item in items {
@@ -130,6 +139,37 @@ class ViewController: UIViewController, MKMapViewDelegate, XMLParserDelegate {
         
         // 지도의 중심점, 반경 등(zoomToRegion)이 반드시 필요함
         myMapView.addAnnotations(annotations)
+    }
+    
+    @objc func myParse() {
+        // XML Parsing
+        let key = "aT2qqrDmCzPVVXR6EFs6I50LZTIvvDrlvDKekAv9ltv9dbO%2F8i8JBz2wsrkpr9yrPEODkcXYzAqAEX1m%2Fl4nHQ%3D%3D"
+        let strURL = "http://opendata.busan.go.kr/openapi/service/AirQualityInfoService/getAirQualityInfoClassifiedByStation?ServiceKey=\(key)&numOfRows=21"
+        
+        if let url = URL(string: strURL) {
+            if let parser = XMLParser(contentsOf: url) {
+                parser.delegate = self
+                
+                if (parser.parse()) {
+                    print("parsing success")
+                    
+                    //파싱이 끝난시간 시간측정
+                    let date: Date = Date()
+                    let dayTimePeriodFormat = DateFormatter()
+                    dayTimePeriodFormat.dateFormat = "YYYY/MM/dd HH시"
+                    currentTime = dayTimePeriodFormat.string(from: date)
+                    
+                    for item in items {
+                        print("item pm10 = \(item["pm10"]!)")
+                    }
+                    
+                } else {
+                    print("parsing fail")
+                }
+            } else {
+                print("url error")
+            }
+        }
     }
     
     func zoomToRegion() {
@@ -192,15 +232,17 @@ class ViewController: UIViewController, MKMapViewDelegate, XMLParserDelegate {
         case "4": vPM10Cai = "아주나쁨"
         default : vPM10Cai = "오류"
         }
-        
+        let mTitle = "미세먼지(PM 10) \(vPM10Cai!) (\(vPM10!) ug/m3)"
         let ac = UIAlertController(title: vStation! + " 측정소", message: nil, preferredStyle: .alert)
-        ac.addAction(UIAlertAction(title: "PM10 : " + vPM10!, style: .default, handler: nil))
-        ac.addAction((UIAlertAction(title: vPM10Cai, style: .default, handler: nil)))
+        ac.addAction(UIAlertAction(title: "측정시간" + currentTime!, style: .default, handler: nil))
+ 
+        ac.addAction((UIAlertAction(title: mTitle, style: .default, handler: nil)))
         ac.addAction(UIAlertAction(title: "닫기", style: .cancel, handler: nil))
         self.present(ac, animated: true, completion: nil)
         
     }
     
+   
     // XML Parsing Delegate 메소드
     // XMLParseDelegate
     func parser(_ parser: XMLParser, didStartElement elementName: String, namespaceURI: String?, qualifiedName qName: String?, attributes attributeDict: [String : String] = [:]) {
